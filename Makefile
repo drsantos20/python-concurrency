@@ -28,9 +28,11 @@ help:
 clean: clean-build clean-pyc clean-test
 
 install:
-	python3 -m venv env
-	source env/bin/activate
-	pip install -r requirements.txt
+	( \
+	  python3 -m venv env
+	  source env/bin/activate; \
+	  pip install -r requirements.txt; \
+	)
 
 clean-build:
 	rm -fr build/
