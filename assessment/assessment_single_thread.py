@@ -3,36 +3,36 @@ import time
 import csv
 import random
 
-from bs4 import BeautifulSoup as bs
+from bs4 import BeautifulSoup
 
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'} # global headers to be used for requests
 
 
 def extract_movie_details(movie_link):
     time.sleep(random.uniform(0, 0.2))
-    movie_soup = bs(requests.get(movie_link, headers=headers).content)
+    response = BeautifulSoup(requests.get(movie_link, headers=headers).content, 'html.parser')
+    movie_soup = response
 
     if movie_soup is not None:
         title = None
         date = None
 
-        find_title = movie_soup.find("div", attrs={"class": "title_wrapper"})
-        if find_title is not None:
-            title = find_title.find("h1").get_text()
+        movie_data = movie_soup.find('div', attrs={'class': 'title_wrapper'})
+        if movie_data is not None:
+            title = movie_data.find('h1').get_text()
+            date = movie_data.find('a', attrs={'title': 'See more release dates'}).get_text().strip()
 
-        title_wrapper = movie_soup.find("div", attrs={"class": "title_wrapper"})
-        if title_wrapper is not None:
-            date = title_wrapper.find("a", attrs={"title": "See more release dates"}).get_text().strip()
+        rating = movie_soup.find('span', attrs={'itemprop': 'ratingValue'}).get_text() if movie_soup.find(
+            'span', attrs={'itemprop': 'ratingValue'}) else None
 
-        rating = movie_soup.find("span", attrs={"itemprop": "ratingValue"}).get_text() if movie_soup.find("span", attrs={"itemprop": "ratingValue"}) else None
-
-        plot_text = movie_soup.find("div", attrs={"class": "summary_text"}).get_text().strip() if movie_soup.find("div", attrs={"class": "summary_text"}) else None
+        plot_text = movie_soup.find('div', attrs={'class': 'summary_text'}).get_text().strip() if movie_soup.find(
+            'div', attrs={'class': 'summary_text'}) else None
 
         with open('/home/daniel/Workspace/python-concurrency/movies.csv', mode='a') as f:
             movie_writer = csv.writer(f, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
             if all([title, date, rating, plot_text]):
                 print(title, date, rating, plot_text)
-                movie_writer.writerow(title, date, rating, plot_text)
+                movie_writer.writerow([title, date, rating, plot_text])
 
 
 def extract_movies(soup):
@@ -46,9 +46,11 @@ def extract_movies(soup):
 
 def main():
     start_time = time.time()
-    popular_movies_url = 'https://www.imdb.com/chart/moviemeter/?ref_=nv_mv_mpm'  # IMDB Most Popular Movies - 100 movies
-    r = requests.get(popular_movies_url, headers=headers)
-    soup = bs(r.content)
+
+    # IMDB Most Popular Movies - 100 movies
+    popular_movies_url = 'https://www.imdb.com/chart/moviemeter/?ref_=nv_mv_mpm'
+    response = requests.get(popular_movies_url, headers=headers)
+    soup = BeautifulSoup(response.content, 'html.parser')
 
     # Main function to extract the 100 movies from IMDB Most Popular Movies
     extract_movies(soup)
@@ -57,4 +59,6 @@ def main():
     print("Total time taken: ", end_time - start_time)
 
 
-main()
+if __name__ == '__main__':
+    main()
+
