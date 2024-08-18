@@ -10,39 +10,56 @@ from bs4 import BeautifulSoup
 # global headers to be used for requests
 headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
-MAX_THREADS = 10
-
+MAX_THREADS = 20
 
 def extract_movie_details(movie_link):
     time.sleep(random.uniform(0, 0.2))
-    response = BeautifulSoup(requests.get(movie_link, headers=headers).content, 'html.parser')
-    movie_soup = response
+    response = requests.get(movie_link, headers=headers)
+    movie_soup = BeautifulSoup(response.content, 'html.parser')
 
     if movie_soup is not None:
         title = None
         date = None
 
-        movie_data = movie_soup.find('div', attrs={'class': 'title_wrapper'})
-        if movie_data is not None:
-            title = movie_data.find('h1').get_text()
-            date = movie_data.find('a', attrs={'title': 'See more release dates'}).get_text().strip()
+        # Finding the main section of the movie page
+        page_section = movie_soup.find('section', attrs={'class': 'ipc-page-section'})
 
-        rating = movie_soup.find('span', attrs={'itemprop': 'ratingValue'}).get_text() if movie_soup.find(
-            'span', attrs={'itemprop': 'ratingValue'}) else None
+        if page_section is not None:
+            # finding the second div in the main section
+            divs = page_section.find_all('div', recursive=False)
 
-        plot_text = movie_soup.find('div', attrs={'class': 'summary_text'}).get_text().strip() if movie_soup.find(
-            'div', attrs={'class': 'summary_text'}) else None
+            if len(divs) > 1:
+                target_div = divs[1]
 
-        with open('movies.csv', mode='a') as file:
-            movie_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-            if all([title, date, rating, plot_text]):
-                print(title, date, rating, plot_text)
-                movie_writer.writerow([title, date, rating, plot_text])
+                # looking for the title of the movie
+                title_tag = target_div.find('h1')
+                if title_tag:
+                    title = title_tag.find('span').get_text()
+
+                # looking for the release date of the movie
+                date_tag = target_div.find('a', href=lambda href: href and 'releaseinfo' in href)
+                if date_tag:
+                    date = date_tag.get_text().strip()
+
+                # looking for the rating of the movie
+                rating_tag = movie_soup.find('div', attrs={'data-testid': 'hero-rating-bar__aggregate-rating__score'})
+                rating = rating_tag.get_text() if rating_tag else None
+
+                # looking for the plot of the movie
+                plot_tag = movie_soup.find('span', attrs={'data-testid': 'plot-xs_to_m'})
+                plot_text = plot_tag.get_text().strip() if plot_tag else None
+
+                with open('movies.csv', mode='a', newline='', encoding='utf-8') as file:
+                    movie_writer = csv.writer(file, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                    if all([title, date, rating, plot_text]):
+                        print(title, date, rating, plot_text)
+                        movie_writer.writerow([title, date, rating, plot_text])
+
 
 
 def extract_movies(soup):
-    movies_table = soup.find('table', attrs={'data-caller-name': 'chart-moviemeter'}).find('tbody')
-    movies_table_rows = movies_table.find_all('tr')
+    movies_table = soup.find('div', attrs={'data-testid': 'chart-layout-main-column'}).find('ul')
+    movies_table_rows = movies_table.find_all('li')
     movie_links = ['https://imdb.com' + movie.find('a')['href'] for movie in movies_table_rows]
 
     threads = min(MAX_THREADS, len(movie_links))
