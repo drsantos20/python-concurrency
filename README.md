@@ -8,7 +8,7 @@ Following these instructions will make this project running in your local machin
 
 ### Prerequisites
 
-```
+``` test
 - python3
 - virtualenv
 ```
